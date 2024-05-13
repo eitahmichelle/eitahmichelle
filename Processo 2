@@ -1,0 +1,44 @@
+def send_messages(data, message_column, start_row, end_row, browser, messages_per_session, user_name):
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        for i in range(start_row - 1, end_row, messages_per_session):
+            end_i = min(i + messages_per_session, end_row)
+            executor.submit(send_messages_threaded, data, message_column, i, end_i, browser, messages_per_session, user_name)
+
+def send_messages_threaded(data, message_column, start_row, end_row, browser, messages_per_session, user_name):
+    for i in range(start_row, end_row):
+        name = data.loc[i, 'Nome Completo']
+        phone_number = data.loc[i, 'Número de telefone']
+        message = data.loc[i, message_column]
+
+        # Find and enter the recipient's name in the search bar
+        search_box = browser.find_element_by_xpath('//input[@title="Search or start a new chat"]')
+        search_box.clear()
+        search_box.send_keys(name)
+        time.sleep(0.5)
+
+        # Wait for the recipient's chat to appear
+        try:
+            recipient_chat = WebDriverWait(browser, 10).until(
+                EC.presence_of_element_located((By.XPATH, f'//span[@title="{name}"]'))
+            )
+            recipient_chat.click()
+        except Exception as e:
+            print(f"Failed to find chat for {name}: {e}")
+            continue
+
+        # Find and enter the message in the chat box
+        input_box = WebDriverWait(browser, 10).until(
+            EC.presence_of_element_located((By.CLASS_NAME, '_1Plpp'))
+        )
+        input_box.send_keys(message)
+
+        # Wait for the send button to appear
+        send_button = WebDriverWait(browser, 10).until(
+            EC.presence_of_element_located((By.CLASS_NAME, '_3M-N-'))
+        )
+
+        # Send the message
+        send_button.click()
+
+        # Print success message
+        print(f"Message sent to {name} ({phone_number})")
